@@ -1,0 +1,8 @@
+{
+    "profiles": {
+        "ExternalSorting.FileGenerator": {
+            "commandName": "Project",
+            "commandLineArgs": "-o \"test.txt\" -s 12345 -p \"one\" \"two\" \"three\" \"four\" \"test string goes here\" -r 0-9999 -f 512m -b 16m"
+        }
+    }
+}
