@@ -2,7 +2,7 @@
   "profiles": {
     "ExternalSorting.Sorter": {
       "commandName": "Project",
-      "commandLineArgs": "-i \"D:\\sorting\\input.txt\" -o \"D:\\sorting\\output.txt\" -t \"D:\\sorting\\temp\" -m 256m -r 16m -w 16m -c false"
+      "commandLineArgs": "-i \"D:\\sorting\\input.txt\" -o \"D:\\sorting\\output.txt\" -t \"D:\\sorting\\temp\" -m 4g -r 16m -w 16m -c false"
     }
   }
 }
