@@ -32,7 +32,7 @@ namespace ExternalSorting.Sorter
 
         static void RunExternalSorting(SorterOptions options, IProgress<string> progress)
         {
-            var memory = BytesStringParser.ParseBytesString(options.Memory);
+            var ram = BytesStringParser.ParseBytesString(options.AvailableRam);
             var readBufferSize = BytesStringParser.ParseBytesString(options.ReadBufferSize);
             var writeBufferSize = BytesStringParser.ParseBytesString(options.WriteBufferSize);
 
@@ -58,10 +58,10 @@ namespace ExternalSorting.Sorter
 
             Directory.CreateDirectory(temporaryFolder);
 
-            ExternalSorter.Sort(options.InputFile, options.OutputFile, temporaryFolder, memory, (int)readBufferSize, (int)writeBufferSize, progress);
+            ExternalSorter.Sort(options.InputFile, options.OutputFile, temporaryFolder, ram, (int)readBufferSize, (int)writeBufferSize, progress);
 
             if (options.CleanTemporaryFolder)
-                Directory.Delete(temporaryFolder);
+                Directory.Delete(temporaryFolder, true);
 
             stopwatch.Stop();
             progress.Report($"External sorting completed at {DateTime.Now}. Elapsed time: {stopwatch.Elapsed}");

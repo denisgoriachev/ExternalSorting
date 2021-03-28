@@ -22,7 +22,7 @@ namespace ExternalSorting.FileGenerator
         public string Range { get; set; } = "0-9999";
 
         [Option('f', "file-size", Required = true, HelpText = "Desired file size in format [number][suffix], where [number] - positive integer, " +
-            "[suffix] - one of the following: \"k\" (kilobytes), \"m\" (megabytes), \"g\" (gigabytes) or emptyor empty (for bytes).")]
+            "[suffix] - one of the following: \"k\" (kilobytes), \"m\" (megabytes), \"g\" (gigabytes) or empty (for bytes).")]
         public string FileSize { get; set; } = "1g";
 
         [Option('b', "buffer-size", Default = "8m", HelpText = "Buffer size for writing data to disk in format [number][suffix], where [number] - positive integer, " +

@@ -21,9 +21,9 @@ namespace ExternalSorting.Sorter
         [Option('c', "clean-temp-folder", Required = false, Default = true, HelpText = "Flag indicates that temporary folder should be cleaned up after sorting.")]
         public bool CleanTemporaryFolder { get; set; }
 
-        [Option('m', "memory", Required = true, HelpText = "Desired RAM usage for external sorting in format [number][suffix], where [number] - positive integer, " +
+        [Option('m', "-ram", Required = true, HelpText = "Desired RAM usage for external sorting in format [number][suffix], where [number] - positive integer, " +
            "[suffix] - one of the following: \"k\" (kilobytes), \"m\" (megabytes), \"g\" (gigabytes) or empty (for bytes).")]
-        public string Memory { get; set; } = "1g";
+        public string AvailableRam { get; set; } = "1g";
 
         [Option('r', "read-buffer-size", Required = true, HelpText = "Buffer size for reading data from disk in format [number][suffix], where [number] - positive integer, " +
            "[suffix] - one of the following: \"k\" (kilobytes), \"m\" (megabytes), \"g\" (gigabytes) or empty (for bytes).")]
