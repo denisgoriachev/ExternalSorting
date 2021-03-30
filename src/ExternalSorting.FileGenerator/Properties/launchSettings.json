@@ -2,7 +2,7 @@
   "profiles": {
     "ExternalSorting.FileGenerator": {
       "commandName": "Project",
-      "commandLineArgs": "-o \"D:\\sorting\\input.txt\" -s 12345 -p \"one\" \"two\" \"three\" \"four\" \"test string goes here\" -r 0-9999 -f 10g -b 16m"
+      "commandLineArgs": "-o \"D:\\sorting\\input-10gb.txt\" -s 12345 -p \"one\" \"two\" \"three\" \"four\" \"test string goes here\" -r 0-9999 -f 10g -b 16m"
     }
   }
 }

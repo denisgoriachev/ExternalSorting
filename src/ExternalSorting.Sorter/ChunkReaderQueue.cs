@@ -78,7 +78,7 @@ namespace ExternalSorting.Sorter
 
             record.NumberPart = binaryReader.ReadInt32();
             var stringLength = binaryReader.ReadInt32();
-            record.StringPart = new string(binaryReader.ReadChars(stringLength));
+            //record.StringPart = new string(binaryReader.ReadChars(stringLength));
 
             return true;
 

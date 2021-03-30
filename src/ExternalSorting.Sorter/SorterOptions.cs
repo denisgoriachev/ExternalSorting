@@ -18,7 +18,7 @@ namespace ExternalSorting.Sorter
         [Option('t', "temp-folder", Required = false, HelpText = "Temporary folder where intermidiate results will be stored. If empty - OS temporary folder will be used.")]
         public string TemporaryFolder { get; set; } = string.Empty;
 
-        [Option('c', "clean-temp-folder", Required = false, Default = true, HelpText = "Flag indicates that temporary folder should be cleaned up after sorting.")]
+        [Option('c', "clean-temp-folder", HelpText = "Flag indicates that temporary folder should be cleaned up after sorting.")]
         public bool CleanTemporaryFolder { get; set; }
 
         [Option('m', "-ram", Required = true, HelpText = "Desired RAM usage for external sorting in format [number][suffix], where [number] - positive integer, " +
