@@ -58,7 +58,7 @@ namespace ExternalSorting.Sorter
 
             Directory.CreateDirectory(temporaryFolder);
 
-            ExternalSorter.Sort(options.InputFile, options.OutputFile, temporaryFolder, ram, (int)readBufferSize, (int)writeBufferSize, progress);
+            ExternalSorter.Sort(options.InputFile, options.OutputFile, temporaryFolder, ram, options.NumberOfChunks, (int)readBufferSize, (int)writeBufferSize, progress);
 
             if (options.CleanTemporaryFolder)
                 Directory.Delete(temporaryFolder, true);

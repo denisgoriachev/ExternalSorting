@@ -22,6 +22,12 @@
     {
         public unsafe int Compare(LineRecord x, LineRecord y)
         {
+            return CompareRecords(x, y);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static unsafe int CompareRecords(LineRecord x, LineRecord y)
+        {
             var stringPartComparisonResult = CompareCharArrays(x.StringPart, x.StringPartLength, y.StringPart, y.StringPartLength);
             return stringPartComparisonResult == 0 ? x.NumberPart.CompareTo(y.NumberPart) : stringPartComparisonResult;
         }

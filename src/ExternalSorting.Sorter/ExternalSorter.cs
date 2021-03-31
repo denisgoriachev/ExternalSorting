@@ -15,9 +15,9 @@ namespace ExternalSorting.Sorter
     public static class ExternalSorter
     {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Sort(string inputFile, string outputFile, string temporaryFolder, long availableRam, int inputBufferSize, int outputBufferSize, IProgress<string>? progress)
+        public static void Sort(string inputFile, string outputFile, string temporaryFolder, long availableRam, int numberOfChunksInParallel, int inputBufferSize, int outputBufferSize, IProgress<string>? progress)
         {
-            var actualNumberOfChunks = PrepareSortedChunks(inputFile, temporaryFolder, availableRam, inputBufferSize, outputBufferSize, progress);
+            var actualNumberOfChunks = PrepareSortedChunks(inputFile, temporaryFolder, availableRam, numberOfChunksInParallel, inputBufferSize, outputBufferSize, progress);
 
             GC.Collect();
             GC.WaitForPendingFinalizers();
@@ -26,95 +26,16 @@ namespace ExternalSorting.Sorter
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static int PrepareSortedChunks(string inputFile, string temporaryFolder, long availableRam, int inputBufferSize, int outputBufferSize, IProgress<string>? progress)
+        static int PrepareSortedChunks(string inputFile, string temporaryFolder, long availableRam, int numberOfChunksInParallel, int inputBufferSize, int outputBufferSize, IProgress<string>? progress)
         {
-            var lineRecordSize = MemoryHelper.SizeOf<LineRecord>();
-
-            // allocating array which will be in limits of allowed memory usage always (even in worst case when all string parts are empty)
-            // Division by 2 required because of sorting - each sorting algorithm might require O(n) space
-            var inMemoryList = new LineRecord[(availableRam / 2 / lineRecordSize) + 1];
-
-            var comparer = new LineRecordComparer();
-            //int currentChunkIndex = 0;
-
-            unsafe
+            using (var lineRecordReader = new ConcurrentLineRecordStringReader(inputFile, Encoding.UTF8, true, inputBufferSize))
             {
-                var buffer = new char[availableRam / sizeof(char) / 2];
-                fixed (char* pBuffer = buffer)
+                var chunkProducer = new ChunkProducer(lineRecordReader);
+                unsafe
                 {
-                    var bufferOffset = 0;
-                    var currentChunkIndex = 0;
-                    var readedBytes = 0;
-
-                    using (var inputReader = new StreamReader(inputFile, Encoding.UTF8, true, inputBufferSize))
-                    {
-                        while ((readedBytes = inputReader.Read(buffer, bufferOffset, buffer.Length - bufferOffset)) != 0)
-                        {
-                            GC.Collect();
-                            GC.WaitForPendingFinalizers();
-
-                            progress?.Report($"Processing chunk {currentChunkIndex} ({buffer.Length - bufferOffset} bytes)...");
-
-                            var span = new Span<char>(buffer, 0, bufferOffset + readedBytes);
-
-                            bufferOffset = 0;
-                            var inMemoryListIndex = 0;
-                            var memoryOffset = 0;
-
-                            while (span.Length > 0)
-                            {
-                                var dotIndex = span.IndexOf('.');
-                                var newLineIndex = span.IndexOf(Environment.NewLine);
-
-                                if (dotIndex == -1 || newLineIndex == -1)
-                                {
-
-                                    break;
-                                }
-
-
-                                inMemoryList[inMemoryListIndex].NumberPart = FastParse(span.Slice(0, dotIndex));
-
-                                inMemoryList[inMemoryListIndex].StringPart = &pBuffer[memoryOffset + dotIndex + 2];
-                                inMemoryList[inMemoryListIndex].StringPartLength = newLineIndex - dotIndex - 2;
-                                inMemoryListIndex++;
-
-                                var nextLineStart = newLineIndex + Environment.NewLine.Length;
-                                memoryOffset += nextLineStart;
-                                span = span.Slice(nextLineStart);
-                            }
-
-                            progress?.Report($"Sorting chunk {currentChunkIndex} ...");
-                            Array.Sort(inMemoryList, 0, inMemoryListIndex, comparer);
-
-                            progress?.Report($"Writing chunk {currentChunkIndex}...");
-
-                            using (var fileStream = new FileStream(Path.Combine(temporaryFolder, $"chunk.{currentChunkIndex}.bin"), FileMode.Create, FileAccess.Write, FileShare.None, outputBufferSize))
-                            using (var binaryWriter = new BinaryWriter(fileStream, Encoding.UTF8))
-                            {
-                                binaryWriter.Write(inMemoryListIndex);
-                                for (var i = 0; i < inMemoryListIndex; i++)
-                                {
-                                    var lineRecord = inMemoryList[i];
-                                    binaryWriter.Write(lineRecord.NumberPart);
-                                    binaryWriter.Write(lineRecord.StringPartLength);
-
-                                    for (int j = 0; j < lineRecord.StringPartLength; j++)
-                                    {
-                                        binaryWriter.Write(lineRecord.StringPart[j]);
-                                    }
-                                }
-                            }
-
-
-                            currentChunkIndex++;
-
-                            span.CopyTo(new Span<char>(buffer));
-                            bufferOffset = span.Length;
-                        }
-                    }
-
-                    return currentChunkIndex;
+                    return chunkProducer.ProduceSortedChunksAsync(availableRam, numberOfChunksInParallel, temporaryFolder, outputBufferSize, progress)
+                        .GetAwaiter()
+                        .GetResult();
                 }
             }
         }
