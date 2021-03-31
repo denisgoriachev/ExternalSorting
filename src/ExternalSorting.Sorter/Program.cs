@@ -13,7 +13,7 @@ namespace ExternalSorting.Sorter
             Parser.Default.ParseArguments<SorterOptions>(args)
                 .WithParsed(options =>
                 {
-                    IProgress<string> progress = new Progress<string>(message => Console.WriteLine(message));
+                    IProgress<string> progress = new Progress<string>(message => Console.WriteLine($"{DateTime.Now} | {message}"));
 
                     try
                     {
