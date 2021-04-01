@@ -10,7 +10,7 @@
     using System.Threading;
     using System.Threading.Tasks;
 
-    public class ChunkProducer
+    public sealed class ChunkProducer
     {
         private readonly ConcurrentLineRecordStringReader _lineRecordReader;
         private static readonly object _lock = new object();
@@ -40,7 +40,7 @@
                     {
                         var readedBytes = 0;
 
-                        while ((readedBytes = _lineRecordReader.ReadLineRecordsAsync(buffer).GetAwaiter().GetResult()) != 0)
+                        while ((readedBytes = _lineRecordReader.ReadLineRecordsAsync(buffer).GetAwaiter().GetResult()) > 0)
                         {
                             GC.Collect();
                             GC.WaitForPendingFinalizers();
@@ -70,10 +70,9 @@
                                     break;
                                 }
 
-
                                 inMemoryList[inMemoryListIndex].NumberPart = FastParse(span.Slice(0, dotIndex));
 
-                                inMemoryList[inMemoryListIndex].StringPart = &pBuffer[memoryOffset + dotIndex + 2];
+                                inMemoryList[inMemoryListIndex].StringPart = pBuffer + (memoryOffset + dotIndex + 2);
                                 inMemoryList[inMemoryListIndex].StringPartLength = newLineIndex - dotIndex - 2;
                                 inMemoryListIndex++;
 

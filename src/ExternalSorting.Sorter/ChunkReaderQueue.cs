@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -8,31 +7,41 @@ using System.Threading.Tasks;
 
 namespace ExternalSorting.Sorter
 {
-    internal class ChunkReaderQueue : IDisposable
+    internal sealed unsafe class ChunkReaderQueue : IDisposable
     {
         private bool disposedValue;
         private readonly FileStream _fileStream;
+        public readonly int ChunkIndex;
+        private readonly char* _stringBuffer;
+        private readonly int _stringBufferLength;
         private BinaryReader _binaryReader;
-        private LineRecord _head;
+        private ChunkLineRecord _head;
 
-        public int ChunkSize { get; }
+        public readonly int ChunkSize;
 
         public int ReadedRecords { get; private set; }
 
         public bool IsEmpty => ReadedRecords == ChunkSize;
 
-        public ChunkReaderQueue(string chunkFile, int readCapacity)
+        public string ChunkFile { get; }
+
+        public ChunkReaderQueue(string chunkFile, int chunkIndex, int fileBufferSize, char* stringBuffer, int stringBufferLength)
         {
-            _fileStream = new FileStream(chunkFile, FileMode.Open, FileAccess.Read, FileShare.None, readCapacity);
-            _binaryReader = new BinaryReader(_fileStream);
+            ChunkFile = chunkFile;
+            ChunkIndex = chunkIndex;
+            _stringBuffer = stringBuffer;
+            _stringBufferLength = stringBufferLength;
+
+            _fileStream = new FileStream(ChunkFile, FileMode.Open, FileAccess.Read, FileShare.None, fileBufferSize);
+            _binaryReader = new BinaryReader(_fileStream, Encoding.UTF8);
 
             ChunkSize = _binaryReader.ReadInt32();
             ReadedRecords = 0;
 
-            ReadOne(_binaryReader, ref _head);
+            ReadOne(out _head);
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!disposedValue)
             {
@@ -47,7 +56,7 @@ namespace ExternalSorting.Sorter
             }
         }
 
-        public LineRecord Peek()
+        public ChunkLineRecord Peek()
         {
             if (IsEmpty)
             {
@@ -58,27 +67,36 @@ namespace ExternalSorting.Sorter
         }
 
 
-        public bool Dequeue()
+        public ChunkLineRecord Dequeue()
         {
-            if (IsEmpty)
+            var result = _head;
+
+            ReadOne(out _head);
+            ReadedRecords++;
+
+            return result;
+        }
+
+        bool ReadOne(out ChunkLineRecord record)
+        {
+            record = new ChunkLineRecord();
+
+            if (_binaryReader.BaseStream.Position == _binaryReader.BaseStream.Length)
             {
+
                 return false;
             }
 
-            ReadOne(_binaryReader, ref _head);
-            ReadedRecords++;
+            record.ChunkIndex = ChunkIndex;
 
-            return true;
-        }
+            record.LineRecord.NumberPart = _binaryReader.ReadInt32();
+            var stringLength = _binaryReader.ReadInt32();
 
-        static bool ReadOne(BinaryReader binaryReader, ref LineRecord record)
-        {
-            if (binaryReader.BaseStream.Position == binaryReader.BaseStream.Length)
-                return false;
+            record.LineRecord.StringPartLength = stringLength;
 
-            record.NumberPart = binaryReader.ReadInt32();
-            var stringLength = binaryReader.ReadInt32();
-            //record.StringPart = new string(binaryReader.ReadChars(stringLength));
+            var span = new Span<char>(_stringBuffer, stringLength);
+            _binaryReader.Read(span);
+            record.LineRecord.StringPart = _stringBuffer;
 
             return true;
 

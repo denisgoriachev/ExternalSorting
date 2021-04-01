@@ -18,7 +18,7 @@
         public char* StringPart;
     }
 
-    internal class LineRecordComparer : IComparer<LineRecord>
+    internal sealed class LineRecordComparer : IComparer<LineRecord>
     {
         public unsafe int Compare(LineRecord x, LineRecord y)
         {

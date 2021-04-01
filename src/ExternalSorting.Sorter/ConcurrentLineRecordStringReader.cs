@@ -7,7 +7,7 @@
     using System.Text;
     using System.Threading.Tasks;
 
-    public class ConcurrentLineRecordStringReader : IDisposable
+    public sealed class ConcurrentLineRecordStringReader : IDisposable
     {
         private bool _disposedValue;
         private readonly StreamReader _streamReader;
@@ -28,38 +28,39 @@
             {
                 lock (_lock)
                 {
-                    if (_remainderLength != 0)
+                    // Checking that we have some reminded data from previous readings
+                    if (_remainderLength > 0)
                     {
                         Array.Copy(_remainder, 0, buffer, 0, _remainderLength);
                     }
 
-                    var readedCharacters = _streamReader.Read(buffer, _remainderLength, buffer.Length - _remainderLength);
+                    var readedChars = _streamReader.Read(buffer, _remainderLength, buffer.Length - _remainderLength);
 
-                    if (readedCharacters <= 0)
+                    if (readedChars <= 0)
                         return 0;
 
-                    readedCharacters += _remainderLength;
+                    readedChars += _remainderLength;
                     _remainderLength = 0; ;
 
-                    var span = new Span<char>(buffer, 0, readedCharacters + _remainderLength);
+                    var span = new Span<char>(buffer, 0, readedChars);
 
-                    var lastNewLine = span.LastIndexOf(Environment.NewLine);
+                    var lastNewLineIndex = span.LastIndexOf(Environment.NewLine);
 
-                    if (lastNewLine != readedCharacters - Environment.NewLine.Length)
+                    if (lastNewLineIndex != readedChars - Environment.NewLine.Length)
                     {
-                        readedCharacters -= (readedCharacters - lastNewLine);
+                        readedChars -= (readedChars - lastNewLineIndex);
 
-                        var reminderSpan = span.Slice(readedCharacters);
+                        var reminderSpan = span.Slice(lastNewLineIndex + Environment.NewLine.Length);
                         reminderSpan.CopyTo(_remainder);
                         _remainderLength = reminderSpan.Length;
                     }
 
-                    return readedCharacters;
+                    return readedChars;
                 }
             });
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!_disposedValue)
             {

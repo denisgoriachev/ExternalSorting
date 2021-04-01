@@ -22,7 +22,7 @@ namespace ExternalSorting.Sorter
             GC.Collect();
             GC.WaitForPendingFinalizers();
 
-            //MergeSortedChunks(temporaryFolder, outputFile, availableRam, outputBufferSize, progress);
+            MergeSortedChunks(temporaryFolder, outputFile, inputBufferSize, outputBufferSize, progress);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -40,86 +40,70 @@ namespace ExternalSorting.Sorter
             }
         }
 
-        //static void MergeSortedChunks(string temporaryFolder, string outputFile, long availableRam, int outputBufferSize, IProgress<string>? progress)
-        //{
-        //    var files = Directory.GetFiles(temporaryFolder, "chunk.*.bin");
-
-        //    var chunks = new List<ChunkReaderQueue>(files.Length);
-
-        //    foreach (var file in files)
-        //    {
-        //        var chunk = new ChunkReaderQueue(file, (int)(availableRam / files.Length));
-        //        chunks.Add(chunk);
-        //    }
-
-        //    var comparer = new LineRecordComparer();
-
-        //    using (var streamWriter = new StreamWriter(outputFile, false, Encoding.UTF8, outputBufferSize))
-        //    {
-        //        while (chunks.Count > 1)
-        //        {
-        //            LineRecord? minLineRecord = null;
-
-        //            var minLineRecordChunkIndex = 0;
-
-        //            for (var i = 0; i < chunks.Count; i++)
-        //            {
-        //                var chunk = chunks[i];
-
-        //                if (chunk.IsEmpty)
-        //                {
-        //                    chunks.RemoveAt(i);
-        //                    chunk.Dispose();
-        //                    i--;
-        //                    continue;
-        //                }
-
-        //                if (minLineRecord == null)
-        //                {
-        //                    minLineRecord = chunk.Peek();
-        //                }
-
-        //                var currentChunkRecord = chunk.Peek();
-
-        //                if (comparer.Compare(minLineRecord.Value, currentChunkRecord) > 0)
-        //                {
-        //                    minLineRecord = currentChunkRecord;
-        //                    minLineRecordChunkIndex = i;
-        //                }
-        //            }
-
-        //            if (minLineRecord == null)
-        //                continue;
-
-        //            streamWriter.Write(minLineRecord.Value.NumberPart);
-        //            streamWriter.Write(". ");
-        //            streamWriter.WriteLine(minLineRecord.Value.StringPart);
-
-        //            chunks[minLineRecordChunkIndex].Dequeue();
-        //        }
-
-        //        var lastChunk = chunks[0];
-
-        //        while (!lastChunk.IsEmpty)
-        //        {
-        //            var lineRecord = lastChunk.Peek();
-
-        //            streamWriter.Write(lineRecord.NumberPart);
-        //            streamWriter.Write(". ");
-        //            streamWriter.WriteLine(lineRecord.StringPart);
-
-        //            lastChunk.Dequeue();
-        //        }
-
-        //        lastChunk.Dispose();
-        //    }
-        //}
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static void WriteChunk(string temporayFolderPath, int chunkIndex, LineRecord[] records, int count, int bufferSize)
+        unsafe static void MergeSortedChunks(string temporaryFolder, string outputFile, int inputBufferSize, int outputBufferSize, IProgress<string>? progress)
         {
+            progress?.Report("Starting to k-merge chunks...");
 
+            var files = Directory.GetFiles(temporaryFolder, "chunk.*.bin");
+
+            var chunks = new Dictionary<int, ChunkReaderQueue>(files.Length);
+
+            var charBuffer = new char[inputBufferSize * files.Length];
+
+            var binaryHeap = new BinaryHeap<ChunkLineRecord>(files.Length, new ChunkLineRecordComparer());
+
+            fixed (char* pCharBuffer = charBuffer)
+            {
+                for (var i = 0; i < files.Length; i++)
+                {
+                    var chunk = new ChunkReaderQueue(files[i], i, inputBufferSize, pCharBuffer + (inputBufferSize * i), inputBufferSize);
+                    chunks.Add(i, chunk);
+
+                    binaryHeap.Insert(chunk.Dequeue());
+                }
+
+                var comparer = new LineRecordComparer();
+
+                using (var streamWriter = new StreamWriter(outputFile, false, Encoding.UTF8, outputBufferSize))
+                {
+                    while (chunks.Count > 1)
+                    {
+                        var minLineRecord = binaryHeap.RemoveRoot();
+                        streamWriter.Write(minLineRecord.LineRecord.NumberPart);
+                        streamWriter.Write(". ");
+                        streamWriter.WriteLine(new Span<char>(&pCharBuffer[minLineRecord.ChunkIndex * inputBufferSize], minLineRecord.LineRecord.StringPartLength));
+
+                        var minChunk = chunks[minLineRecord.ChunkIndex];
+                        if (minChunk.IsEmpty)
+                        {
+                            progress?.Report($"Chunk {Path.GetFileNameWithoutExtension(minChunk.ChunkFile)} depleted! ({files.Length - chunks.Count + 1}/{files.Length})");
+                            chunks.Remove(minLineRecord.ChunkIndex);
+                            minChunk.Dispose();
+                        }
+                        else
+                        {
+                            binaryHeap.Insert(minChunk.Dequeue());
+                        }
+                    }
+
+                    var lastChunk = chunks.First().Value;
+
+                    while (!lastChunk.IsEmpty)
+                    {
+                        var lineRecord = lastChunk.Peek();
+
+                        streamWriter.Write(lineRecord.LineRecord.NumberPart);
+                        streamWriter.Write(". ");
+                        streamWriter.WriteLine(new Span<char>(&pCharBuffer[lineRecord.ChunkIndex * inputBufferSize], lineRecord.LineRecord.StringPartLength));
+
+                        lastChunk.Dequeue();
+                    }
+
+                    lastChunk.Dispose();
+                }
+            }
         }
+
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         static int FastParse(Span<char> source)
